@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Drive a single workshop ticket through the inner SWE↔Tester loop. Resolves the ticket from `implement_yourself/tasks/`, creates a `feat/{NNN-slug}` branch, launches the software-engineer agent to implement it, then routes by archetype — Tester runs on logic tickets, orchestrator spot-checks the SWE's AC walk on glue/bootstrap tickets, fast-path file existence check on docs tickets (Tester HARD-OFF). Loops on FAIL up to 3 times, moves the file to `tasks/done/`, then commits directly with `git commit -m`. Stops after one ticket — the human reviews the commit, talks through it, then re-invokes for the next ticket. Trigger when the user types `/implement`, asks to "implement task NNN", says "pick up the next ticket", or otherwise wants to ship one workshop ticket under supervision.
+description: Drive a single workshop ticket through the inner SWE↔Tester loop. Resolves the ticket from `implement_yourself/tasks/`, creates an `implementing/from-scratch` branch (a fixed default — not derived from the ticket; subsequent tickets stack on top), launches the software-engineer agent to implement it, then routes by archetype — Tester runs on logic tickets, orchestrator spot-checks the SWE's AC walk on glue/bootstrap tickets, fast-path file existence check on docs tickets (Tester HARD-OFF). Loops on FAIL up to 3 times, moves the file to `tasks/done/`, then commits directly with `git commit -m`. Stops after one ticket — the human reviews the commit, talks through it, then re-invokes for the next ticket. Trigger when the user types `/implement`, asks to "implement task NNN", says "pick up the next ticket", or otherwise wants to ship one workshop ticket under supervision.
 disable-model-invocation: true
 argument-hint: [task-ref-or-description]
 ---
@@ -71,7 +71,9 @@ Proceed without blocking.
 
 ## Step 2 — Create the feature branch (only if currently on `main`)
 
-The branch name is `feat/{NNN-slug}` derived directly from the ticket filename (drop the `.groomed.md` suffix). Examples: `feat/001-bootstrap-research-mcp-server`, `feat/013-add-evaluator-optimizer-loop`.
+The branch name is the **fixed default `implementing/from-scratch`** — it is **not** derived from the ticket filename. Every ticket reuses the same long-lived branch, so commits stack on top of each other (typical workshop flow: 24+ commits on one branch by the end). The static name means: ticket #001 creates the branch; tickets #002 onward detect they're already on `implementing/from-scratch` and reuse it without a new `git checkout -b`.
+
+If the human pre-checked out their own branch (e.g. `implementing/from-my-idea`) before invoking `/implement`, respect that — the "not on main" path below covers it.
 
 First, detect the current branch:
 
@@ -82,21 +84,21 @@ git status --short
 
 Then branch on the value:
 
-- **`CURRENT == main`** — create and check out the feature branch:
+- **`CURRENT == main`** — create and check out the default branch:
   ```bash
-  git checkout -b feat/{NNN-slug}
+  git checkout -b implementing/from-scratch
   ```
-  This is the typical workshop flow: human pauses on `main` between tickets, types `/implement`, gets a fresh branch.
+  This is the typical first-ticket flow: human starts the workshop on `main`, types `/implement 1`, gets the default branch.
 - **`CURRENT != main`** — **do not create a new branch.** Stay on the current branch and reuse it. Log to the human:
   > "Already on `{CURRENT}` (not `main`). Reusing this branch — the new commit will land on top of any existing work."
-  This covers two real workshop scenarios:
-  1. Re-running `/implement` on the same ticket after an aborted run (you're already on `feat/{NNN-slug}` from the prior attempt).
-  2. The human deliberately wants to stack multiple tickets on a single branch for narrative continuity, or is on a custom branch (`workshop-demo`, etc.).
+  This covers the two main workshop scenarios:
+  1. Tickets #002 onward — `CURRENT == implementing/from-scratch` from the prior ticket; just stack on top.
+  2. The human pre-checked out a custom branch name (`implementing/from-my-idea`, `workshop-demo`, etc.) before the first invocation — reuse it as their long-lived branch.
   Skip the `git checkout -b` entirely — there is nothing to do.
 
 Edge cases (apply only to the `main` path above):
 
-- **Branch already exists** (re-running `/implement` from `main` for a ticket whose branch survived an aborted run): the `git checkout -b` will fail. Prompt the human "Branch `feat/{NNN-slug}` already exists. Reuse it (`r`) or recreate (`d`)?" — default to reuse (`git checkout feat/{NNN-slug}`).
+- **Branch already exists** (re-running `/implement 1` from `main` after the user manually deleted their checkout but not the branch ref): the `git checkout -b` will fail. Prompt the human "Branch `implementing/from-scratch` already exists. Reuse it (`r`) or recreate (`d`)?" — default to reuse (`git checkout implementing/from-scratch`).
 - **Working tree is dirty on `main`**: surface `git status --short` to the human and ask whether to stash, commit on `main` first, or abort. Do not silently `git stash` — the workshop human needs to see the state.
 
 This step is the orchestrator's responsibility. Do not delegate to the SWE.
@@ -112,19 +114,19 @@ Use `TaskCreate` to make progress inspectable.
 - `[SWE] implement {NNN-slug}` (in_progress immediately)
 - `[QA] verify {NNN-slug}` — blocked by SWE
 - `[Done] move ticket to tasks/done/` — blocked by QA
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 **Glue/bootstrap ticket** (3 items — Tester is skipped):
 
 - `[SWE] implement + AC walk {NNN-slug}` (in_progress immediately)
 - `[Done] spot-check + move ticket to tasks/done/` — blocked by SWE
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 **Docs ticket** (3 items — Tester HARD-OFF, no AC walk):
 
 - `[SWE] write docs {NNN-slug}` (in_progress immediately)
 - `[Done] confirm file(s) exist + move ticket to tasks/done/` — blocked by SWE
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 No parallel branches. Mark items complete as each step finishes.
 
@@ -319,7 +321,7 @@ If the commit fails (pre-commit hook, signing gate, etc.), surface the error to 
 
 After the commit lands:
 
-- Verify with `git log --oneline -1` (the new commit should be the tip of `feat/{NNN-slug}`).
+- Verify with `git log --oneline -1` (the new commit should be the tip of the current branch — typically `implementing/from-scratch`).
 - Verify with `git status --short` (working tree should be clean).
 
 Mark `[Commit]` complete in the TaskList.
@@ -331,7 +333,7 @@ Print a single markdown block:
 ```markdown
 ## /implement complete — {NNN-slug}: {Title}
 
-**Branch:** `feat/{NNN-slug}` (1 commit ahead of base).
+**Branch:** `{current branch — `implementing/from-scratch` by default}` ({N} commits ahead of `main`).
 **Archetype:** {logic | glue/bootstrap | docs}. {Tester ran | Tester skipped — verified via SWE AC walk + orchestrator spot-check | Tester HARD-OFF — verified via `ls` + `wc -l`}.
 **Files changed** ({N}): `path/to/a.py`, `path/to/b.py`, …
 **E2E command:** `make {target}` — passed (per SWE excerpt).

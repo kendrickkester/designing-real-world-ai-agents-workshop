@@ -1,6 +1,6 @@
 ---
 name: implement-universal
-description: Harness-agnostic version of `/implement`. Drives a single workshop ticket through the SWE→Tester loop in ONE conversation, with the role prompts bundled as `agents/software-engineer.md` and `agents/tester.md` instead of being launched as subagents. Resolves the ticket from `implement_yourself/tasks/`, creates a `feat/{NNN-slug}` branch, adopts the software-engineer role to implement, then switches to the tester role to verify (logic tickets only). Loops on FAIL up to 3 times, moves the file to `tasks/done/`, then commits directly with `git commit -m`. Stops after one ticket. Trigger when the user types `/implement-universal`, asks to "implement task NNN without subagents", or is running in a harness (Cursor, Windsurf, plain Claude API client, etc.) that doesn't support Claude Code's `Task` tool.
+description: Harness-agnostic version of `/implement`. Drives a single workshop ticket through the SWE→Tester loop in ONE conversation, with the role prompts bundled as `agents/software-engineer.md` and `agents/tester.md` instead of being launched as subagents. Resolves the ticket from `implement_yourself/tasks/`, creates an `implementing/from-scratch` branch (a fixed default — not derived from the ticket; subsequent tickets stack on top), adopts the software-engineer role to implement, then switches to the tester role to verify (logic tickets only). Loops on FAIL up to 3 times, moves the file to `tasks/done/`, then commits directly with `git commit -m`. Stops after one ticket. Trigger when the user types `/implement-universal`, asks to "implement task NNN without subagents", or is running in a harness (Cursor, Windsurf, plain Claude API client, etc.) that doesn't support Claude Code's `Task` tool.
 disable-model-invocation: true
 argument-hint: [task-ref-or-description]
 ---
@@ -86,7 +86,7 @@ Proceed without blocking.
 
 ## Step 2 — Create the feature branch (only if currently on `main`)
 
-The branch name is `feat/{NNN-slug}` derived directly from the ticket filename (drop the `.groomed.md` suffix).
+The branch name is the **fixed default `implementing/from-scratch`** — it is **not** derived from the ticket filename. Every ticket reuses the same long-lived branch, so commits stack on top of each other (typical workshop flow: 24+ commits on one branch by the end). Ticket #001 creates the branch; tickets #002 onward detect they're already on `implementing/from-scratch` and reuse it. If the human pre-checked out their own branch (e.g. `implementing/from-my-idea`) before invoking `/implement-universal`, respect that — the "not on main" path below covers it.
 
 First, detect the current branch:
 
@@ -97,16 +97,17 @@ git status --short
 
 Then branch on the value:
 
-- **`CURRENT == main`** — create and check out the feature branch:
+- **`CURRENT == main`** — create and check out the default branch:
   ```bash
-  git checkout -b feat/{NNN-slug}
+  git checkout -b implementing/from-scratch
   ```
 - **`CURRENT != main`** — **do not create a new branch.** Stay on the current branch and reuse it. Log to the human:
   > "Already on `{CURRENT}` (not `main`). Reusing this branch — the new commit will land on top of any existing work."
+  This covers tickets #002 onward (already on `implementing/from-scratch`) and the "human pre-checked out a custom branch" case.
 
 Edge cases (apply only to the `main` path):
 
-- **Branch already exists**: the `git checkout -b` will fail. Prompt the human "Branch `feat/{NNN-slug}` already exists. Reuse it (`r`) or recreate (`d`)?" — default to reuse (`git checkout feat/{NNN-slug}`).
+- **Branch already exists**: the `git checkout -b` will fail. Prompt the human "Branch `implementing/from-scratch` already exists. Reuse it (`r`) or recreate (`d`)?" — default to reuse (`git checkout implementing/from-scratch`).
 - **Working tree is dirty on `main`**: surface `git status --short` and ask whether to stash, commit on `main` first, or abort. Do not silently `git stash`.
 
 This step is the orchestrator's responsibility. Do NOT defer it to the SWE phase.
@@ -122,19 +123,19 @@ Use your harness's task-tracking tool (`TaskCreate` in Claude Code, or an equiva
 - `[SWE phase] implement {NNN-slug}` (in_progress immediately)
 - `[Tester phase] verify {NNN-slug}` — blocked by SWE
 - `[Done] move ticket to tasks/done/` — blocked by Tester
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 **Glue/bootstrap ticket** (3 items — Tester phase is skipped):
 
 - `[SWE phase] implement + AC walk {NNN-slug}` (in_progress immediately)
 - `[Done] spot-check + move ticket to tasks/done/` — blocked by SWE
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 **Docs ticket** (3 items — Tester HARD-OFF, no AC walk):
 
 - `[SWE phase] write docs {NNN-slug}` (in_progress immediately)
 - `[Done] confirm file(s) exist + move ticket to tasks/done/` — blocked by SWE
-- `[Commit] git commit feat/{NNN-slug}` — blocked by Done
+- `[Commit] git commit on implementing/from-scratch` — blocked by Done
 
 No parallel branches. Mark items complete as each phase finishes.
 
@@ -284,7 +285,7 @@ Print a single markdown block:
 ```markdown
 ## /implement-universal complete — {NNN-slug}: {Title}
 
-**Branch:** `feat/{NNN-slug}` (1 commit ahead of base).
+**Branch:** `{current branch — `implementing/from-scratch` by default}` ({N} commits ahead of `main`).
 **Mode:** single-context (no subagent isolation).
 **Archetype:** {logic | glue/bootstrap | docs}. {Tester phase ran | Tester phase skipped — verified via SWE AC walk + orchestrator spot-check | Tester HARD-OFF — verified via `ls` + `wc -l`}.
 **Files changed** ({N}): `path/to/a.py`, `path/to/b.py`, …

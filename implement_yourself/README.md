@@ -62,10 +62,10 @@ The trade-off is weaker Tester independence (the Tester phase sees the SWE phase
 
 The skill creates a feature branch only on the **first** ticket (when you're starting from `main`). Every subsequent ticket detects the existing feature branch and stacks its commit on top. End state: one long-lived branch carrying all 24 commits.
 
-If you'd prefer a different branch name than `feat/001-bootstrap-research-mcp-server` (which is the auto-derived name from the first ticket), check out your own branch before invoking `/implement` for the first time:
+If you'd prefer a different branch name than `implementing/from-scratch` (which is the auto-derived name from the first ticket), check out your own branch before invoking `/implement` for the first time:
 
 ```bash
-git checkout -b workshop-build
+git checkout -b implementing/from-my-idea
 /implement 1
 ```
 
@@ -97,7 +97,7 @@ Variants:
 The skill then:
 
 1. Resolves the ticket and shows you the title + scope summary.
-2. Creates `feat/{NNN-slug}` if you're on `main` (otherwise reuses the current branch).
+2. Creates `implementing/from-scratch` if you're on `main` (otherwise reuses the current branch — every ticket stacks its commit on the same long-lived branch).
 3. Launches the SWE agent. SWE implements + runs lint + runs the e2e Make target, hands off.
 4. Launches the Tester agent. Tester verifies + runs adversarial break paths + walks every AC.
 5. On Tester FAIL, re-launches the SWE with concrete feedback. Caps at 3 retries.
@@ -163,4 +163,4 @@ Once the workshop is done, `src/research/README.md`, `src/writing/README.md`, an
 - **`/implement` doesn't appear after install** → run `/reload-plugins` in Claude Code, or restart the harness.
 - **Skill complains about a missing dependency ticket** → it's advisory; you can confirm to proceed out of order, but most tickets genuinely build on each other.
 - **3 Tester FAILs in a row** → don't fight the loop. Read the surfaced report, fix manually, then re-invoke.
-- **Want a clean restart** → delete the populated source files, `git checkout main`, `git branch -D feat/…`, and start over from `/implement 1`.
+- **Want a clean restart** → delete the populated source files, `git checkout main`, `git branch -D implementing/from-scratch` (or whatever your custom branch is), and start over from `/implement 1`.
