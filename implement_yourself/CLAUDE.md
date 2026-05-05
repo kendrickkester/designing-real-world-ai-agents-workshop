@@ -105,6 +105,7 @@ High-level slash commands that orchestrate the MCP tools end-to-end with sensibl
 - `/research` — runs deep research on a topic via the Deep Research MCP server.
 - `/write-post` — drafts a LinkedIn post via the LinkedIn Writer MCP server.
 - `/research-and-write` — chains both into the full pipeline.
-- `/implement` — drives one workshop ticket through the SWE↔Tester loop (workshop-only).
+- `/implement` — drives one workshop ticket through the SWE↔Tester loop using Claude Code subagents (workshop-only).
+- `/implement-universal` — harness-agnostic twin of `/implement`. Same SWE↔Tester loop, but runs in a single conversation context by adopting role files from `.claude/skills/implement-universal/agents/` instead of dispatching subagents. Use this in Cursor, Windsurf, plain Anthropic SDK loops, or any harness that doesn't support Claude Code's `Task` tool.
 
 Use these when you want the workflow without remembering tool names. Ideal for everyday use.

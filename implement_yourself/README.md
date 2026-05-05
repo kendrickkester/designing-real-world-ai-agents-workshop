@@ -43,6 +43,17 @@ Both files live under `.claude/agents/`. The `/implement` skill itself is at `.c
 
 The `commit-commands` plugin is enabled in `.claude/settings.json` — the skill drives the commit through `/commit-commands:commit` after the Tester PASSES.
 
+### Harness-agnostic variant: `/implement-universal`
+
+`/implement` relies on Claude Code's subagent dispatch (the `Task` tool) to spawn `software-engineer` and `tester` in isolated contexts. Harnesses that don't have that primitive — Cursor, Windsurf, plain Anthropic SDK loops, generic MCP clients — can run the same workflow through **`/implement-universal`** instead.
+
+The universal skill is functionally identical to `/implement`, but instead of dispatching subagents it instructs the model to **adopt two roles in sequence** inside one conversation:
+
+1. **Software Engineer phase** — read `.claude/skills/implement-universal/agents/software-engineer.md` and execute it end-to-end.
+2. **Tester phase** — read `.claude/skills/implement-universal/agents/tester.md` and verify as a fresh reviewer (logic tickets only).
+
+The trade-off is weaker Tester independence (the Tester phase sees the SWE phase's reasoning in the shared context window). If you're running inside Claude Code, prefer `/implement` for the cleaner subagent isolation.
+
 ### One ticket per `/implement` invocation
 
 `/implement` is intentionally single-shot — it ships exactly one ticket per call, then stops. The workshop cadence is: invoke → narrate the diff to the audience → optionally amend → invoke again on the next ticket.
@@ -70,6 +81,8 @@ From inside `implement_yourself/`, in Claude Code (or any harness that reads `.c
 /implement 1
 ```
 
+If your harness doesn't support Claude Code's subagent dispatch (Cursor, Windsurf, plain Anthropic SDK loops, etc.), substitute `/implement-universal` for `/implement` everywhere below — the argument forms are identical.
+
 Variants:
 
 | Argument | Behaviour |
@@ -79,6 +92,7 @@ Variants:
 | `/implement bootstrap-research-mcp-server` | Pick by slug. |
 | `/implement tasks/003-implement-analyze-youtube-video.groomed.md` | Pick by full path. |
 | `/implement` (no arg) | Skill asks "Which task?" |
+| `/implement-universal …` | Same arguments as above, but runs the SWE↔Tester loop in a single conversation context (for harnesses without subagent dispatch). |
 
 The skill then:
 
@@ -101,9 +115,11 @@ If the loop stalls (3 Tester FAILs in a row without convergence), `/implement` s
 ```
 implement_yourself/
 ├── .claude/
-│   ├── agents/{software-engineer,tester}.md   # specialized sub-agents
-│   ├── skills/implement/SKILL.md              # the /implement orchestrator
-│   └── settings.json                          # enables context7 + commit-commands
+│   ├── agents/{software-engineer,tester}.md             # specialized sub-agents (used by /implement)
+│   ├── skills/implement/SKILL.md                        # the /implement orchestrator (Claude Code, subagent-based)
+│   ├── skills/implement-universal/SKILL.md              # the /implement-universal orchestrator (harness-agnostic, single-context)
+│   ├── skills/implement-universal/agents/{software-engineer,tester}.md  # bundled role files for the universal flow
+│   └── settings.json                                    # enables context7 + commit-commands
 ├── .env.example                               # GOOGLE_API_KEY (req), OPIK_* (opt)
 ├── .mcp.json                                  # populated by tasks #001 + #010
 ├── .python-version
