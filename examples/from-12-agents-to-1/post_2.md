@@ -1,42 +1,37 @@
-We planned 12 AI agents and shipped 1. It worked better.
+A team I helped planned to ship 12 agents for a marketing app.
+They wanted an "agentic army" for every tiny task.
 
-Sounds crazy, right? But it’s a common story.
+They thought more agents meant more intelligence.
+Instead, they built an unmaintainable mess.
 
-A client wanted an AI chatbot for marketing content: emails, SMS, promos. Their initial design had dozens of specialized agents: orchestrator, analyzers, validators, spam prevention.
+We replaced all 12 with a single agent using smart tools.
+It worked better, ran faster, and was 10x easier to debug.
 
-In practice? A single agent with tools won. Its tasks were tightly coupled and sequential.
-Splitting it created information silos and handoff errors.
-One brain maintained context, made decisions. Tools were still specialized.
+In AI engineering, complexity is a trap.
+Think of it as a **spectrum of autonomy**:
 
-This is the core mistake. People jump to complex multi-agent setups too fast.
+𝟭/ 𝗪𝗼𝗿𝗸𝗳𝗹𝗼𝘄𝘀: You define every step.
+𝟮/ 𝗦𝗶𝗻𝗴𝗹𝗲 𝗔𝗴𝗲𝗻𝘁: The model picks the tools.
+𝟯/ 𝗠𝘂𝗹𝘁𝗶-𝗔𝗴𝗲𝗻𝘁: Multiple decision-makers coordinate.
 
-Think of AI system design as a spectrum:
-*   Workflows: You control every step.
-*   Single Agent + Tools: Model decides the flow.
-*   Multi-Agent: Multiple decision-makers coordinate.
+Stay as far left as possible.
+Every step to the right adds lag, cost, and failure points.
 
-**Stay as far left as possible.** Move right only when forced.
-Each step right increases cost, latency, and debugging complexity.
-More LLM calls mean more tokens and more failure points.
+The biggest killer is **context rot**.
+When you pack 20+ tools into one prompt, models suffer from "loss in the middle" attention patterns.
+The LLM ignores details buried in the center and picks the wrong tools.
 
-A single agent with tools works for most cases. But it has limits.
-Too many tools? You hit "context rot."
-Past ~10-20 tools, LLMs degrade at tool selection. They get overwhelmed.
-Information gets lost in the middle.
+Only move to Level 3 for these 4 reasons:
+• True parallelism
+• Context overload
+• Third-party modularity
+• Hard security boundaries
 
-So, when do you actually need multi-agent?
-**Only 4 valid reasons:**
-1.  True Parallelism: Tasks are genuinely independent.
-2.  Context Overload: Single agent context is too packed.
-3.  Modularity: You need reusable or third-party agent systems.
-4.  Security Boundaries: Strict data isolation or compliance.
+If your tasks are sequential, stick to one agent.
+One brain with a full view beats five agents playing telephone.
 
-We built an article generator. We started with one agent for research and writing. It broke.
-Research is exploratory. Writing is constrained.
-We needed two agents with a clear handoff. Each had its own lean, focused context.
+**The simplest system that reliably solves the problem is the best system.**
 
-**The simplest system that reliably solves the problem is always the best system.**
+Stop building for your pitch deck. Start building for production.
 
-Don't overengineer your AI agents. Build simple first.
-
-What's the most complex agent architecture you've simplified? Tell me below.
+Have you ever regretted overengineering an AI system?
