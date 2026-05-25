@@ -14,6 +14,10 @@ from writing.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
+# Keep few-shot research light: only the opening slice of each item's research
+# is shown to the judge. This is an educational example, not a production cap.
+_FEW_SHOT_RESEARCH_CHARS = 500
+
 JUDGE_PROMPT = """
 You are an expert LinkedIn content evaluator. Your job is to evaluate a generated
 LinkedIn post against a set of writing profiles and the original guideline that
@@ -83,6 +87,7 @@ class _FewShotExample(BaseModel):
     """A few-shot example for the judge (no ground truth)."""
 
     guideline: str
+    research: str
     generated_post: str
     label: str
     critique: str
@@ -96,12 +101,19 @@ def _build_few_shot_section(examples: list[_FewShotExample]) -> str:
 
     parts = ["**FEW-SHOT EXAMPLES — follow the same labeling logic:**"]
     for i, ex in enumerate(examples, 1):
+        research = ex.research or "<none>"
+        if len(research) > _FEW_SHOT_RESEARCH_CHARS:
+            # Truncating to keep the token count for the example under control.
+            research = research[:_FEW_SHOT_RESEARCH_CHARS] + "…[truncated]"
         parts.append(
             f"""
 <example_{i}>
 <guideline>
 {ex.guideline}
 </guideline>
+<research_context>
+{research}
+</research_context>
 <generated_post>
 {ex.generated_post}
 </generated_post>
@@ -151,10 +163,12 @@ class BinaryLLMJudgeMetric(base_metric.BaseMetric):
                 continue
             generated = entry.generated_content(DATASET_DIR)
             guideline = entry.guideline_content(DATASET_DIR)
+            research = entry.research_content(DATASET_DIR)
             if generated and guideline:
                 few_shot_examples.append(
                     _FewShotExample(
                         guideline=guideline,
+                        research=research,
                         generated_post=generated,
                         label=entry.label.value,
                         critique=entry.critique,
